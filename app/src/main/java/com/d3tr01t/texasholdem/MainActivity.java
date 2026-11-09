@@ -1,6 +1,11 @@
 package com.d3tr01t.texasholdem;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
+import android.widget.Toast;
 import android.os.Bundle;
 import android.os.Build;
 import android.view.View;
@@ -69,10 +74,26 @@ public class MainActivity extends Activity {
                 String url = request.getUrl().toString();
                 return !url.startsWith(APP_ORIGIN);
             }
+
+            @Override
+            public boolean onRenderProcessGone(WebView view, android.webkit.RenderProcessGoneDetail detail) {
+                String report = "WebView renderer crashed\\nDid crash: " + detail.didCrash()
+                    + "\\nPriority: " + detail.rendererPriorityAtExit()
+                    + "\\nAndroid: " + Build.VERSION.RELEASE + " (SDK " + Build.VERSION.SDK_INT + ")";
+                CrashReporter.saveReport(MainActivity.this, report);
+                if (view != null) {
+                    view.loadDataWithBaseURL(APP_ORIGIN,
+                        "<meta charset='utf-8'><body style='background:#0a0507;color:white;font:16px sans-serif;padding:24px'>" +
+                        "Сбой игрового движка WebView. Отчёт сохранён. Перезапустите приложение.</body>",
+                        "text/html", "UTF-8", null);
+                }
+                return true;
+            }
         });
 
         // Show the most recent locally cached build immediately; update in the background.
         loadCachedOrBundledGame();
+        showPreviousCrashReport();
         updateGameOnEveryLaunch();
     }
 
@@ -102,6 +123,26 @@ public class MainActivity extends Activity {
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         if (hasFocus) enterImmersiveMode();
+    }
+
+
+    private void showPreviousCrashReport() {
+        File reportFile = new File(getFilesDir(), "crash-last.txt");
+        if (!reportFile.isFile()) return;
+        try {
+            String report = readFile(reportFile);
+            if (report.trim().isEmpty()) return;
+            new AlertDialog.Builder(this)
+                .setTitle("Диагностика предыдущего сбоя")
+                .setMessage(report.length() > 12000 ? report.substring(0, 12000) : report)
+                .setPositiveButton("Скопировать отчёт", (dialog, which) -> {
+                    ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                    clipboard.setPrimaryClip(ClipData.newPlainText("Texas Hold'em crash report", report));
+                    Toast.makeText(this, "Отчёт скопирован", Toast.LENGTH_LONG).show();
+                })
+                .setNegativeButton("Закрыть", (dialog, which) -> { })
+                .show();
+        } catch (Exception ignored) { }
     }
 
     private File cacheFile() {
