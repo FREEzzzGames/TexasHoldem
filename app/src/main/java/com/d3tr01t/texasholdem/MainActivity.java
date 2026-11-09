@@ -27,7 +27,7 @@ public class MainActivity extends Activity {
 
         try {
             String html = readGameAsset();
-            gameView = new WebView(getApplicationContext());
+            gameView = new WebView(this);
             gameView.setBackgroundColor(Color.rgb(10, 5, 7));
             gameView.setOverScrollMode(View.OVER_SCROLL_NEVER);
 
